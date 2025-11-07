@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Camera Statistics Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📱 Camera App Statistics</h1>
+            <p>Real-time statistics from your camera app</p>
+        </header>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>Total Recording Time</h3>
+                <div class="stat-value" id="totalRecordingTime">--:--:--</div>
+                <p class="stat-description">All time recording duration</p>
+            </div>
+
+            <div class="stat-card">
+                <h3>Total Sessions</h3>
+                <div class="stat-value" id="totalSessions">--</div>
+                <p class="stat-description">Number of recording sessions</p>
+            </div>
+
+            <div class="stat-card">
+                <h3>Today's Recording</h3>
+                <div class="stat-value" id="dailyRecordingTime">--:--:--</div>
+                <p class="stat-description">Recording time today</p>
+            </div>
+
+            <div class="stat-card">
+                <h3>Today's Sessions</h3>
+                <div class="stat-value" id="dailySessions">--</div>
+                <p class="stat-description">Sessions recorded today</p>
+            </div>
+
+            <div class="stat-card">
+                <h3>App Usage Today</h3>
+                <div class="stat-value" id="appUsageTime">--:--:--</div>
+                <p class="stat-description">Time spent in app today</p>
+            </div>
+
+            <div class="stat-card">
+                <h3>Last Updated</h3>
+                <div class="stat-value" id="lastUpdated">--</div>
+                <p class="stat-description">Most recent data sync</p>
+            </div>
+        </div>
+
+        <div class="chart-section">
+            <h2>📊 Daily Activity (Last 30 Days)</h2>
+            <div class="chart-container">
+                <canvas id="dailyChart"></canvas>
+            </div>
+        </div>
+
+        <div class="recent-activity">
+            <h2>📋 Recent Activity</h2>
+            <div class="activity-list" id="activityList">
+                <p class="loading">Loading recent activity...</p>
+            </div>
+        </div>
+
+        <div class="sync-status">
+            <button id="refreshBtn" class="refresh-btn">🔄 Refresh Data</button>
+            <span id="syncStatus">Last synced: Never</span>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
