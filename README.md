@@ -2,6 +2,8 @@
 
 A web server for collecting and displaying statistics from the Camera iOS app. Built with Node.js, Express, and SQLite.
 
+**Repository:** https://github.com/fbedev/camstauts
+
 ## Features
 
 - 📊 Real-time statistics dashboard
@@ -48,28 +50,29 @@ Get all stored statistics.
 ### GET /api/daily-stats?days=30
 Get daily aggregated statistics for the last N days.
 
-## Railway Deployment
+## Quick Railway Deployment
 
-1. **Create Railway Account:**
-   - Sign up at [railway.app](https://railway.app)
+1. **Go to Railway:** Visit [railway.app](https://railway.app) and sign up/login
 
-2. **Deploy the App:**
+2. **Deploy from GitHub:**
    - Click "New Project" → "Deploy from GitHub repo"
-   - Connect your repository containing this code
-   - Railway will automatically detect it's a Node.js app and deploy it
+   - Search for and select `fbedev/camstauts`
+   - Click "Deploy"
 
-3. **Get Your Domain:**
-   - Once deployed, Railway will provide a domain like: `https://your-project-name.railway.app`
+3. **Wait for Deployment:**
+   - Railway will automatically build and deploy your app
+   - You'll get a domain like: `https://camstauts-production.up.railway.app`
 
 4. **Update iOS App:**
-   - In `StatisticsAPIClient.swift`, change the `baseURL` to your Railway domain:
+   - Copy your Railway domain
+   - Update `StatisticsAPIClient.swift` in your iOS app:
    ```swift
-   private let baseURL = "https://your-project-name.railway.app"
+   private let baseURL = "https://your-railway-domain.railway.app"
    ```
 
-5. **Test the Deployment:**
-   - Visit your Railway domain in a browser to see the dashboard
-   - The iOS app will now send statistics to your Railway-hosted server
+5. **Test:**
+   - Visit your Railway domain to see the dashboard
+   - Run your iOS app to start collecting statistics!
 
 ## Features
 
