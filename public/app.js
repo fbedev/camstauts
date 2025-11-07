@@ -21,9 +21,10 @@ class StatisticsDashboard {
 
     async loadData() {
         try {
+            const timestamp = Date.now();
             const [statsResponse, dailyResponse] = await Promise.all([
-                fetch('/api/statistics'),
-                fetch('/api/daily-stats')
+                fetch(`/api/statistics?t=${timestamp}`),
+                fetch(`/api/daily-stats?t=${timestamp}`)
             ]);
 
             if (!statsResponse.ok || !dailyResponse.ok) {
