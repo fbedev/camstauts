@@ -91,7 +91,28 @@ function initializeDatabase() {
 // API Routes
 app.post('/api/statistics', (req, res) => {
     const stats = req.body;
-    const deviceId = stats.deviceId || 'default-device';
+    const deviceId = stats.deviceId || stats.device_id || 'default-device';
+
+    // Normalize incoming payload keys from different app versions
+    const normalizeNumber = (value, fallback = 0) => {
+        if (value === undefined || value === null || value === '') {
+            return fallback;
+        }
+        const parsed = Number(value);
+        return Number.isNaN(parsed) ? fallback : parsed;
+    };
+
+    const totalRecordingTime = normalizeNumber(stats.totalRecordingTime ?? stats.total_recording_time);
+    const dailyRecordingTime = normalizeNumber(stats.dailyRecordingTime ?? stats.daily_recording_time);
+    const totalSessions = normalizeNumber(stats.totalSessions ?? stats.total_sessions, 0);
+    const dailySessions = normalizeNumber(stats.dailySessions ?? stats.daily_sessions, 0);
+    const appUsageTime = normalizeNumber(stats.appUsageTime ?? stats.app_usage_time);
+    const dailyAppUsage = normalizeNumber(stats.dailyAppUsage ?? stats.daily_app_usage);
+    const totalPhotos = normalizeNumber(stats.totalPhotosTaken ?? stats.totalPhotos ?? stats.total_photos);
+    const dailyPhotos = normalizeNumber(stats.dailyPhotosTaken ?? stats.dailyPhotos ?? stats.daily_photos);
+    const totalDevices = normalizeNumber(stats.totalDevicesUsed ?? stats.total_devices, 1);
+    const deviceModel = stats.deviceModel || stats.device_model || '';
+    const deviceName = stats.deviceName || stats.device_name || '';
 
     console.log('Received statistics:', stats);
 
@@ -99,9 +120,9 @@ app.post('/api/statistics', (req, res) => {
     db.run(`INSERT OR REPLACE INTO statistics
         (device_id, total_recording_time, total_sessions, daily_recording_time, daily_sessions, app_usage_time, device_model, device_name, total_photos, total_devices, last_updated, date)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), date('now'))`,
-        [deviceId, stats.totalRecordingTime || 0, stats.totalSessions || 0,
-         stats.dailyRecordingTime || 0, stats.dailySessions || 0, stats.appUsageTime || 0,
-         stats.deviceModel || '', stats.deviceName || '', stats.totalPhotos || 0, stats.totalDevices || 1],
+        [deviceId, totalRecordingTime, totalSessions,
+         dailyRecordingTime, dailySessions, appUsageTime,
+         deviceModel, deviceName, totalPhotos, totalDevices],
         function(err) {
             if (err) {
                 console.error('Error saving statistics:', err);
@@ -112,7 +133,7 @@ app.post('/api/statistics', (req, res) => {
             db.run(`INSERT OR REPLACE INTO daily_stats
                 (device_id, date, recording_time, sessions, app_usage_time, photos)
                 VALUES (?, date('now'), ?, ?, ?, ?)`,
-                [deviceId, stats.dailyRecordingTime || 0, stats.dailySessions || 0, stats.appUsageTime || 0, stats.dailyPhotos || 0],
+                [deviceId, dailyRecordingTime, dailySessions, dailyAppUsage, dailyPhotos],
                 function(err) {
                     if (err) {
                         console.error('Error saving daily stats:', err);
