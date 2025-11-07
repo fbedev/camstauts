@@ -154,6 +154,25 @@ app.get('/api/statistics', (req, res) => {
     });
 });
 
+app.get('/api/statistics/device/:deviceId', (req, res) => {
+    const { deviceId } = req.params;
+
+    db.get(`SELECT * FROM statistics WHERE device_id = ? ORDER BY last_updated DESC LIMIT 1`,
+        [deviceId],
+        (err, row) => {
+            if (err) {
+                console.error('Error fetching device statistics:', err);
+                return res.status(500).json({ error: 'Failed to fetch device statistics' });
+            }
+
+            if (!row) {
+                return res.status(404).json({ message: 'No statistics found for device' });
+            }
+
+            res.json(row);
+        });
+});
+
 app.get('/api/daily-stats', (req, res) => {
     const days = req.query.days || 30;
     db.all(`SELECT date, SUM(recording_time) as total_recording_time,
