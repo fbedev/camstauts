@@ -13,7 +13,13 @@ app.use(bodyParser.json());
 app.use(express.static('public'));
 
 // Database setup
-const db = new sqlite3.Database('./statistics.db', (err) => {
+const dbPath = process.env.RAILWAY_VOLUME_MOUNT_PATH
+    ? `${process.env.RAILWAY_VOLUME_MOUNT_PATH}/statistics.db`
+    : './statistics.db';
+
+console.log(`Database path: ${dbPath}`);
+
+const db = new sqlite3.Database(dbPath, (err) => {
     if (err) {
         console.error('Error opening database:', err.message);
     } else {
@@ -23,6 +29,31 @@ const db = new sqlite3.Database('./statistics.db', (err) => {
 });
 
 function initializeDatabase() {
+    // Add new columns to existing table if they don't exist
+    db.run(`ALTER TABLE statistics ADD COLUMN device_model TEXT DEFAULT ''`, (err) => {
+        if (err && !err.message.includes('duplicate column name')) {
+            console.log('Note: device_model column may already exist');
+        }
+    });
+
+    db.run(`ALTER TABLE statistics ADD COLUMN device_name TEXT DEFAULT ''`, (err) => {
+        if (err && !err.message.includes('duplicate column name')) {
+            console.log('Note: device_name column may already exist');
+        }
+    });
+
+    db.run(`ALTER TABLE statistics ADD COLUMN total_photos INTEGER DEFAULT 0`, (err) => {
+        if (err && !err.message.includes('duplicate column name')) {
+            console.log('Note: total_photos column may already exist');
+        }
+    });
+
+    db.run(`ALTER TABLE statistics ADD COLUMN total_devices INTEGER DEFAULT 1`, (err) => {
+        if (err && !err.message.includes('duplicate column name')) {
+            console.log('Note: total_devices column may already exist');
+        }
+    });
+
     db.run(`CREATE TABLE IF NOT EXISTS statistics (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         device_id TEXT NOT NULL,
@@ -31,9 +62,19 @@ function initializeDatabase() {
         daily_recording_time REAL DEFAULT 0,
         daily_sessions INTEGER DEFAULT 0,
         app_usage_time REAL DEFAULT 0,
+        device_model TEXT DEFAULT '',
+        device_name TEXT DEFAULT '',
+        total_photos INTEGER DEFAULT 0,
+        total_devices INTEGER DEFAULT 1,
         last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
         date DATE DEFAULT CURRENT_DATE
     )`);
+
+    db.run(`ALTER TABLE daily_stats ADD COLUMN photos INTEGER DEFAULT 0`, (err) => {
+        if (err && !err.message.includes('duplicate column name')) {
+            console.log('Note: photos column may already exist in daily_stats');
+        }
+    });
 
     db.run(`CREATE TABLE IF NOT EXISTS daily_stats (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -42,6 +83,7 @@ function initializeDatabase() {
         recording_time REAL DEFAULT 0,
         sessions INTEGER DEFAULT 0,
         app_usage_time REAL DEFAULT 0,
+        photos INTEGER DEFAULT 0,
         UNIQUE(device_id, date)
     )`);
 }
@@ -55,10 +97,11 @@ app.post('/api/statistics', (req, res) => {
 
     // Insert or update total statistics
     db.run(`INSERT OR REPLACE INTO statistics
-        (device_id, total_recording_time, total_sessions, daily_recording_time, daily_sessions, app_usage_time, last_updated, date)
-        VALUES (?, ?, ?, ?, ?, ?, datetime('now'), date('now'))`,
+        (device_id, total_recording_time, total_sessions, daily_recording_time, daily_sessions, app_usage_time, device_model, device_name, total_photos, total_devices, last_updated, date)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), date('now'))`,
         [deviceId, stats.totalRecordingTime || 0, stats.totalSessions || 0,
-         stats.dailyRecordingTime || 0, stats.dailySessions || 0, stats.appUsageTime || 0],
+         stats.dailyRecordingTime || 0, stats.dailySessions || 0, stats.appUsageTime || 0,
+         stats.deviceModel || '', stats.deviceName || '', stats.totalPhotos || 0, stats.totalDevices || 1],
         function(err) {
             if (err) {
                 console.error('Error saving statistics:', err);
@@ -67,9 +110,9 @@ app.post('/api/statistics', (req, res) => {
 
             // Also save daily stats
             db.run(`INSERT OR REPLACE INTO daily_stats
-                (device_id, date, recording_time, sessions, app_usage_time)
-                VALUES (?, date('now'), ?, ?, ?)`,
-                [deviceId, stats.dailyRecordingTime || 0, stats.dailySessions || 0, stats.appUsageTime || 0],
+                (device_id, date, recording_time, sessions, app_usage_time, photos)
+                VALUES (?, date('now'), ?, ?, ?, ?)`,
+                [deviceId, stats.dailyRecordingTime || 0, stats.dailySessions || 0, stats.appUsageTime || 0, stats.dailyPhotos || 0],
                 function(err) {
                     if (err) {
                         console.error('Error saving daily stats:', err);
@@ -93,7 +136,8 @@ app.get('/api/statistics', (req, res) => {
 app.get('/api/daily-stats', (req, res) => {
     const days = req.query.days || 30;
     db.all(`SELECT date, SUM(recording_time) as total_recording_time,
-                   SUM(sessions) as total_sessions, SUM(app_usage_time) as total_app_usage
+                   SUM(sessions) as total_sessions, SUM(app_usage_time) as total_app_usage,
+                   SUM(photos) as total_photos
             FROM daily_stats
             WHERE date >= date('now', '-${days} days')
             GROUP BY date

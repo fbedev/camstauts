@@ -54,10 +54,16 @@ class StatisticsDashboard {
         // Update main stats
         this.updateStatElement('totalRecordingTime', this.formatDuration(latest.total_recording_time || 0));
         this.updateStatElement('totalSessions', (latest.total_sessions || 0).toLocaleString());
+        this.updateStatElement('totalPhotos', (latest.total_photos || 0).toLocaleString());
+        this.updateStatElement('totalDevices', (latest.total_devices || 1).toString());
         this.updateStatElement('dailyRecordingTime', this.formatDuration(latest.daily_recording_time || 0));
-        this.updateStatElement('dailySessions', (latest.daily_sessions || 0).toLocaleString());
         this.updateStatElement('appUsageTime', this.formatDuration(latest.app_usage_time || 0));
-        this.updateStatElement('lastUpdated', this.formatDate(latest.last_updated));
+
+        // Update device information
+        this.updateStatElement('deviceName', latest.device_name || 'Unknown Device');
+        this.updateStatElement('deviceModel', latest.device_model || 'Unknown Model');
+
+        this.updateLastSync();
     }
 
     updateStatElement(elementId, value) {
@@ -75,6 +81,7 @@ class StatisticsDashboard {
         const recordingData = dailyStats.map(stat => (stat.total_recording_time || 0) / 60).reverse(); // Convert to minutes
         const sessionsData = dailyStats.map(stat => stat.total_sessions || 0).reverse();
         const usageData = dailyStats.map(stat => (stat.total_app_usage || 0) / 60).reverse(); // Convert to minutes
+        const photosData = dailyStats.map(stat => stat.total_photos || 0).reverse();
 
         if (this.chart) {
             this.chart.destroy();
@@ -87,28 +94,89 @@ class StatisticsDashboard {
                 datasets: [{
                     label: 'Recording Time (minutes)',
                     data: recordingData,
-                    borderColor: '#667eea',
-                    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                    borderColor: 'rgb(0, 122, 255)',
+                    backgroundColor: 'rgba(0, 122, 255, 0.1)',
                     tension: 0.4,
-                    fill: true
+                    fill: true,
+                    pointRadius: 4,
+                    pointHoverRadius: 6
                 }, {
                     label: 'Sessions',
                     data: sessionsData,
-                    borderColor: '#764ba2',
-                    backgroundColor: 'rgba(118, 75, 162, 0.1)',
+                    borderColor: 'rgb(175, 82, 222)',
+                    backgroundColor: 'rgba(175, 82, 222, 0.1)',
                     tension: 0.4,
-                    yAxisID: 'y1'
+                    yAxisID: 'y1',
+                    pointRadius: 4,
+                    pointHoverRadius: 6
+                }, {
+                    label: 'Photos',
+                    data: photosData,
+                    borderColor: 'rgb(52, 199, 89)',
+                    backgroundColor: 'rgba(52, 199, 89, 0.1)',
+                    tension: 0.4,
+                    yAxisID: 'y1',
+                    pointRadius: 4,
+                    pointHoverRadius: 6
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: {
+                            usePointStyle: true,
+                            padding: 20,
+                            font: {
+                                size: 12,
+                                weight: '500'
+                            }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        titleColor: 'white',
+                        bodyColor: 'white',
+                        cornerRadius: 8,
+                        displayColors: true,
+                        padding: 12
+                    }
+                },
                 scales: {
+                    x: {
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            font: {
+                                size: 11
+                            }
+                        }
+                    },
                     y: {
                         beginAtZero: true,
                         title: {
                             display: true,
-                            text: 'Recording Time (minutes)'
+                            text: 'Recording Time (minutes)',
+                            font: {
+                                size: 12,
+                                weight: '500'
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        },
+                        ticks: {
+                            font: {
+                                size: 11
+                            }
                         }
                     },
                     y1: {
@@ -116,17 +184,20 @@ class StatisticsDashboard {
                         position: 'right',
                         title: {
                             display: true,
-                            text: 'Sessions'
+                            text: 'Sessions & Photos',
+                            font: {
+                                size: 12,
+                                weight: '500'
+                            }
                         },
                         grid: {
                             drawOnChartArea: false,
+                        },
+                        ticks: {
+                            font: {
+                                size: 11
+                            }
                         }
-                    }
-                },
-                plugins: {
-                    legend: {
-                        display: true,
-                        position: 'top'
                     }
                 }
             }
@@ -136,20 +207,21 @@ class StatisticsDashboard {
     updateActivityList(stats) {
         const activityList = document.getElementById('activityList');
         if (stats.length === 0) {
-            activityList.innerHTML = '<p class="loading">No activity data available yet.</p>';
+            activityList.innerHTML = '<div class="loading-state"><i class="fas fa-chart-line"></i><p>No activity data available yet.</p></div>';
             return;
         }
 
         const recentStats = stats.slice(0, 10); // Show last 10 entries
         activityList.innerHTML = recentStats.map(stat => `
             <div class="activity-item">
-                <div>
-                    <strong>Device: ${stat.device_id}</strong>
-                    <div class="time">${this.formatDate(stat.last_updated)}</div>
+                <div class="device-info">
+                    <div class="device-name">${stat.device_name || 'Unknown Device'}</div>
+                    <div class="timestamp">${this.formatDate(stat.last_updated)}</div>
                 </div>
-                <div class="stats">
+                <div class="activity-stats">
                     <div>Recording: ${this.formatDuration(stat.daily_recording_time || 0)}</div>
                     <div>Sessions: ${stat.daily_sessions || 0}</div>
+                    <div>Photos: ${stat.total_photos || 0}</div>
                     <div>Usage: ${this.formatDuration(stat.app_usage_time || 0)}</div>
                 </div>
             </div>
@@ -158,7 +230,9 @@ class StatisticsDashboard {
 
     updateLastSync() {
         const now = new Date();
-        document.getElementById('syncStatus').textContent = `Last synced: ${now.toLocaleTimeString()}`;
+        const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        document.getElementById('lastUpdated').textContent = `Updated ${timeString}`;
+        document.getElementById('syncStatus').textContent = `Last synced: ${timeString}`;
     }
 
     showStatus(message, type) {
@@ -170,9 +244,9 @@ class StatisticsDashboard {
 
         const statusDiv = document.createElement('div');
         statusDiv.className = type;
-        statusDiv.textContent = message;
+        statusDiv.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>${message}`;
 
-        const container = document.querySelector('.container');
+        const container = document.querySelector('.main-content');
         container.insertBefore(statusDiv, container.firstChild);
 
         // Auto-remove after 5 seconds

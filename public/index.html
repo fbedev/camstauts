@@ -3,72 +3,158 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Camera Statistics Dashboard</title>
+    <title>Camera Statistics</title>
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>📱 Camera App Statistics</h1>
-            <p>Real-time statistics from your camera app</p>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-content">
+                <div class="header-icon">
+                    <i class="fas fa-camera"></i>
+                </div>
+                <div class="header-text">
+                    <h1>Camera</h1>
+                    <p>Statistics Dashboard</p>
+                </div>
+            </div>
         </header>
 
-        <div class="stats-grid">
-            <div class="stat-card">
-                <h3>Total Recording Time</h3>
-                <div class="stat-value" id="totalRecordingTime">--:--:--</div>
-                <p class="stat-description">All time recording duration</p>
-            </div>
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Overview Section -->
+            <section class="overview-section">
+                <div class="section-header">
+                    <h2>Overview</h2>
+                    <div class="last-updated" id="lastUpdated">Updated just now</div>
+                </div>
 
-            <div class="stat-card">
-                <h3>Total Sessions</h3>
-                <div class="stat-value" id="totalSessions">--</div>
-                <p class="stat-description">Number of recording sessions</p>
-            </div>
+                <div class="stats-grid">
+                    <!-- Recording Stats -->
+                    <div class="stat-card">
+                        <div class="card-icon">
+                            <i class="fas fa-video"></i>
+                        </div>
+                        <div class="card-content">
+                            <div class="stat-value" id="totalRecordingTime">--:--:--</div>
+                            <div class="stat-label">Total Recording Time</div>
+                            <div class="stat-subtitle">All time duration</div>
+                        </div>
+                    </div>
 
-            <div class="stat-card">
-                <h3>Today's Recording</h3>
-                <div class="stat-value" id="dailyRecordingTime">--:--:--</div>
-                <p class="stat-description">Recording time today</p>
-            </div>
+                    <div class="stat-card">
+                        <div class="card-icon">
+                            <i class="fas fa-play-circle"></i>
+                        </div>
+                        <div class="card-content">
+                            <div class="stat-value" id="totalSessions">--</div>
+                            <div class="stat-label">Recording Sessions</div>
+                            <div class="stat-subtitle">Total sessions</div>
+                        </div>
+                    </div>
 
-            <div class="stat-card">
-                <h3>Today's Sessions</h3>
-                <div class="stat-value" id="dailySessions">--</div>
-                <p class="stat-description">Sessions recorded today</p>
-            </div>
+                    <!-- Photo Stats -->
+                    <div class="stat-card">
+                        <div class="card-icon">
+                            <i class="fas fa-camera-retro"></i>
+                        </div>
+                        <div class="card-content">
+                            <div class="stat-value" id="totalPhotos">--</div>
+                            <div class="stat-label">Photos Taken</div>
+                            <div class="stat-subtitle">Total captures</div>
+                        </div>
+                    </div>
 
-            <div class="stat-card">
-                <h3>App Usage Today</h3>
-                <div class="stat-value" id="appUsageTime">--:--:--</div>
-                <p class="stat-description">Time spent in app today</p>
-            </div>
+                    <!-- Device Stats -->
+                    <div class="stat-card">
+                        <div class="card-icon">
+                            <i class="fas fa-mobile-alt"></i>
+                        </div>
+                        <div class="card-content">
+                            <div class="stat-value" id="totalDevices">--</div>
+                            <div class="stat-label">Devices Used</div>
+                            <div class="stat-subtitle">Active devices</div>
+                        </div>
+                    </div>
 
-            <div class="stat-card">
-                <h3>Last Updated</h3>
-                <div class="stat-value" id="lastUpdated">--</div>
-                <p class="stat-description">Most recent data sync</p>
-            </div>
-        </div>
+                    <!-- Today's Stats -->
+                    <div class="stat-card today-card">
+                        <div class="card-icon">
+                            <i class="fas fa-calendar-day"></i>
+                        </div>
+                        <div class="card-content">
+                            <div class="stat-value" id="dailyRecordingTime">--:--</div>
+                            <div class="stat-label">Today Recording</div>
+                            <div class="stat-subtitle">Today's duration</div>
+                        </div>
+                    </div>
 
-        <div class="chart-section">
-            <h2>📊 Daily Activity (Last 30 Days)</h2>
-            <div class="chart-container">
-                <canvas id="dailyChart"></canvas>
-            </div>
-        </div>
+                    <div class="stat-card today-card">
+                        <div class="card-icon">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <div class="card-content">
+                            <div class="stat-value" id="appUsageTime">--:--</div>
+                            <div class="stat-label">App Usage Today</div>
+                            <div class="stat-subtitle">Time in app</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
 
-        <div class="recent-activity">
-            <h2>📋 Recent Activity</h2>
-            <div class="activity-list" id="activityList">
-                <p class="loading">Loading recent activity...</p>
-            </div>
-        </div>
+            <!-- Device Information -->
+            <section class="device-section">
+                <div class="section-header">
+                    <h2>Device Information</h2>
+                </div>
+                <div class="device-card">
+                    <div class="device-info">
+                        <div class="device-icon">
+                            <i class="fas fa-mobile-screen-button"></i>
+                        </div>
+                        <div class="device-details">
+                            <div class="device-name" id="deviceName">--</div>
+                            <div class="device-model" id="deviceModel">--</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
 
-        <div class="sync-status">
-            <button id="refreshBtn" class="refresh-btn">🔄 Refresh Data</button>
-            <span id="syncStatus">Last synced: Never</span>
-        </div>
+            <!-- Activity Chart -->
+            <section class="chart-section">
+                <div class="section-header">
+                    <h2>Activity Trends</h2>
+                    <div class="chart-period">Last 30 days</div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="dailyChart"></canvas>
+                </div>
+            </section>
+
+            <!-- Recent Activity -->
+            <section class="activity-section">
+                <div class="section-header">
+                    <h2>Recent Activity</h2>
+                </div>
+                <div class="activity-list" id="activityList">
+                    <div class="loading-state">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <p>Loading activity...</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            <button class="refresh-button" id="refreshBtn">
+                <i class="fas fa-refresh"></i>
+                Refresh
+            </button>
+            <div class="sync-status" id="syncStatus">Last synced: Just now</div>
+        </footer>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
