@@ -1,287 +1,198 @@
-// Dashboard JavaScript
-class StatisticsDashboard {
-    constructor() {
-        this.chart = null;
-        this.init();
-    }
+document.addEventListener('DOMContentLoaded', () => {
+    const menuToggle = document.getElementById('menuToggle');
+    const primaryNav = document.getElementById('primaryNav');
+    const yearTarget = document.getElementById('currentYear');
 
-    init() {
-        this.loadData();
-        this.setupEventListeners();
-        // Auto-refresh every 30 seconds
-        setInterval(() => this.loadData(), 30000);
-    }
+    const closeNav = () => {
+        if (primaryNav) {
+            primaryNav.classList.remove('open');
+        }
+        if (menuToggle) {
+            menuToggle.setAttribute('aria-expanded', 'false');
+        }
+        document.body.classList.remove('nav-open');
+    };
 
-    setupEventListeners() {
-        document.getElementById('refreshBtn').addEventListener('click', () => {
-            this.showStatus('Refreshing data...', 'info');
-            this.loadData();
+    if (menuToggle && primaryNav) {
+        menuToggle.addEventListener('click', () => {
+            const expanded = menuToggle.getAttribute('aria-expanded') === 'true';
+            const nextState = !expanded;
+            menuToggle.setAttribute('aria-expanded', String(nextState));
+            primaryNav.classList.toggle('open', nextState);
+            document.body.classList.toggle('nav-open', nextState);
+        });
+
+        primaryNav.querySelectorAll('a').forEach(link => {
+            link.addEventListener('click', () => {
+                closeNav();
+            });
         });
     }
 
-    async loadData() {
-        try {
-            const timestamp = Date.now();
-            const [statsResponse, dailyResponse] = await Promise.all([
-                fetch(`/api/statistics?t=${timestamp}`),
-                fetch(`/api/daily-stats?t=${timestamp}`)
-            ]);
+    if (yearTarget) {
+        yearTarget.textContent = String(new Date().getFullYear());
+    }
 
-            if (!statsResponse.ok || !dailyResponse.ok) {
-                throw new Error('Failed to fetch data');
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (!prefersReducedMotion) {
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', event => {
+                const href = anchor.getAttribute('href');
+                if (!href || href === '#' || href.length === 1) {
+                    return;
+                }
+
+                const target = document.getElementById(href.slice(1));
+                if (target) {
+                    event.preventDefault();
+                    target.scrollIntoView({ behavior: 'smooth' });
+                }
+            });
+        });
+    }
+
+    // --- Live global status polling ---
+    const devicesEl = document.getElementById('devicesReporting');
+    const totalRecordingEl = document.getElementById('totalRecordingGlobal');
+    const totalTakesEl = document.getElementById('totalTakes');
+    const updatedEl = document.getElementById('statusUpdated');
+
+    function formatDuration(seconds) {
+        seconds = Math.max(0, Math.floor(seconds || 0));
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        const secs = seconds % 60;
+        if (hours > 0) return `${hours}h ${String(minutes).padStart(2, '0')}m`;
+        return `${minutes}m ${String(secs).padStart(2, '0')}s`;
+    }
+
+    async function checkImage(url) {
+        return new Promise(resolve => {
+            const img = new Image();
+            img.onload = () => resolve(true);
+            img.onerror = () => resolve(false);
+            img.src = url;
+        });
+    }
+
+    async function populateGallery() {
+        // load app icon
+        const appIcon = document.getElementById('appIcon');
+        if (appIcon) {
+            const exists = await checkImage(appIcon.getAttribute('src'));
+            if (!exists) appIcon.style.display = 'none';
+        }
+
+        // screenshots with data-src attribute
+        const gallery = document.getElementById('screenshotsGallery');
+        if (!gallery) return;
+        const imgs = Array.from(gallery.querySelectorAll('img'));
+        for (const el of imgs) {
+            const src = el.getAttribute('data-src');
+            if (!src) continue;
+            const ok = await checkImage(src);
+            if (ok) {
+                el.setAttribute('src', src);
+                el.style.display = '';
+            } else {
+                el.style.display = 'none';
             }
-
-            const stats = await statsResponse.json();
-            const dailyStats = await dailyResponse.json();
-
-            this.updateStats(stats);
-            this.updateChart(dailyStats);
-            this.updateActivityList(stats);
-            this.updateLastSync();
-
-            this.showStatus('Data updated successfully', 'success');
-        } catch (error) {
-            console.error('Error loading data:', error);
-            this.showStatus('Failed to load data. Please try again.', 'error');
         }
     }
 
-    updateStats(stats) {
-        if (stats.length === 0) return;
+    async function fetchGlobalStatus() {
+        try {
+            const t = Date.now();
+            const res = await fetch(`/api/statistics?t=${t}`);
+            if (!res.ok) throw new Error('no data');
+            const stats = await res.json();
 
-        // Get the most recent stats
-        const latest = stats[0];
+            const latest = Array.isArray(stats) && stats.length ? stats[0] : (stats || {});
 
-        // Update main stats
-        this.updateStatElement('totalRecordingTime', this.formatDuration(latest.total_recording_time || 0));
-        this.updateStatElement('totalSessions', (latest.total_sessions || 0).toLocaleString());
-        this.updateStatElement('totalPhotos', (latest.total_photos || 0).toLocaleString());
-        this.updateStatElement('totalDevices', (latest.total_devices || 1).toString());
-        this.updateStatElement('dailyRecordingTime', this.formatDuration(latest.daily_recording_time || 0));
-        this.updateStatElement('appUsageTime', this.formatDuration(latest.app_usage_time || 0));
+            // heuristics for fields - keep safe fallbacks
+            const devices = latest.total_devices ?? latest.devices_reporting ?? latest.devices_count ?? (Array.isArray(stats) ? stats.length : null);
+            const recordingSeconds = latest.total_recording_time ?? latest.recording_time ?? latest.daily_recording_time ?? 0;
+            const takes = latest.total_photos ?? latest.total_takes ?? latest.total_sessions ?? latest.takes ?? 0;
 
-        // Update device information
-        this.updateStatElement('deviceName', latest.device_name || 'Unknown Device');
-        this.updateStatElement('deviceModel', latest.device_model || 'Unknown Model');
-
-        this.updateLastSync();
-    }
-
-    updateStatElement(elementId, value) {
-        const element = document.getElementById(elementId);
-        if (element) {
-            element.textContent = value;
+            if (devicesEl) devicesEl.textContent = devices == null ? '—' : String(devices);
+            if (totalRecordingEl) totalRecordingEl.textContent = formatDuration(recordingSeconds);
+            if (totalTakesEl) totalTakesEl.textContent = String(takes || 0);
+            if (updatedEl) updatedEl.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            // populate per-device list
+            renderDeviceList(stats);
+        } catch (err) {
+            // keep existing values if fetch fails
+            console.debug('Failed to fetch global status', err);
         }
     }
 
-    updateChart(dailyStats) {
-        const ctx = document.getElementById('dailyChart').getContext('2d');
+    function renderDeviceList(stats) {
+        const container = document.getElementById('deviceList');
+        if (!container) return;
 
-        // Prepare data for chart
-        const labels = dailyStats.map(stat => this.formatDateShort(stat.date)).reverse();
-        const recordingData = dailyStats.map(stat => (stat.total_recording_time || 0) / 60).reverse(); // Convert to minutes
-        const sessionsData = dailyStats.map(stat => stat.total_sessions || 0).reverse();
-        const usageData = dailyStats.map(stat => (stat.total_app_usage || 0) / 60).reverse(); // Convert to minutes
-        const photosData = dailyStats.map(stat => stat.total_photos || 0).reverse();
-
-        if (this.chart) {
-            this.chart.destroy();
-        }
-
-        this.chart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'Recording Time (minutes)',
-                    data: recordingData,
-                    borderColor: 'rgb(0, 122, 255)',
-                    backgroundColor: 'rgba(0, 122, 255, 0.1)',
-                    tension: 0.4,
-                    fill: true,
-                    pointRadius: 4,
-                    pointHoverRadius: 6
-                }, {
-                    label: 'Sessions',
-                    data: sessionsData,
-                    borderColor: 'rgb(175, 82, 222)',
-                    backgroundColor: 'rgba(175, 82, 222, 0.1)',
-                    tension: 0.4,
-                    yAxisID: 'y1',
-                    pointRadius: 4,
-                    pointHoverRadius: 6
-                }, {
-                    label: 'Photos',
-                    data: photosData,
-                    borderColor: 'rgb(52, 199, 89)',
-                    backgroundColor: 'rgba(52, 199, 89, 0.1)',
-                    tension: 0.4,
-                    yAxisID: 'y1',
-                    pointRadius: 4,
-                    pointHoverRadius: 6
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                interaction: {
-                    mode: 'index',
-                    intersect: false,
-                },
-                plugins: {
-                    legend: {
-                        display: true,
-                        position: 'top',
-                        labels: {
-                            usePointStyle: true,
-                            padding: 20,
-                            font: {
-                                size: 12,
-                                weight: '500'
-                            }
-                        }
-                    },
-                    tooltip: {
-                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                        titleColor: 'white',
-                        bodyColor: 'white',
-                        cornerRadius: 8,
-                        displayColors: true,
-                        padding: 12
-                    }
-                },
-                scales: {
-                    x: {
-                        grid: {
-                            display: false
-                        },
-                        ticks: {
-                            font: {
-                                size: 11
-                            }
-                        }
-                    },
-                    y: {
-                        beginAtZero: true,
-                        title: {
-                            display: true,
-                            text: 'Recording Time (minutes)',
-                            font: {
-                                size: 12,
-                                weight: '500'
-                            }
-                        },
-                        grid: {
-                            color: 'rgba(0, 0, 0, 0.05)'
-                        },
-                        ticks: {
-                            font: {
-                                size: 11
-                            }
-                        }
-                    },
-                    y1: {
-                        beginAtZero: true,
-                        position: 'right',
-                        title: {
-                            display: true,
-                            text: 'Sessions & Photos',
-                            font: {
-                                size: 12,
-                                weight: '500'
-                            }
-                        },
-                        grid: {
-                            drawOnChartArea: false,
-                        },
-                        ticks: {
-                            font: {
-                                size: 11
-                            }
-                        }
-                    }
+        // stats might be an array of entries per device over time.
+        // Build a map of latest entry per device (use device_id or device_name)
+        const map = new Map();
+        if (Array.isArray(stats)) {
+            for (const entry of stats) {
+                const key = entry.device_id ?? entry.device_name ?? `${entry.device_model || 'device'}-${entry.device_name || ''}`;
+                const prev = map.get(key);
+                const ts = entry.last_updated ? new Date(entry.last_updated).getTime() : Date.now();
+                if (!prev || ts > prev._ts) {
+                    map.set(key, Object.assign({ _ts: ts }, entry));
                 }
             }
-        });
-    }
+        }
 
-    updateActivityList(stats) {
-        const activityList = document.getElementById('activityList');
-        if (stats.length === 0) {
-            activityList.innerHTML = '<div class="loading-state"><i class="fas fa-chart-line"></i><p>No activity data available yet.</p></div>';
+        if (map.size === 0) {
+            container.innerHTML = '<div class="device-empty">No devices reporting yet.</div>';
             return;
         }
 
-        const recentStats = stats.slice(0, 10); // Show last 10 entries
-        activityList.innerHTML = recentStats.map(stat => `
-            <div class="activity-item">
-                <div class="device-info">
-                    <div class="device-name">${stat.device_name || 'Unknown Device'}</div>
-                    <div class="timestamp">${this.formatDate(stat.last_updated)}</div>
-                </div>
-                <div class="activity-stats">
-                    <div>Recording: ${this.formatDuration(stat.daily_recording_time || 0)}</div>
-                    <div>Sessions: ${stat.daily_sessions || 0}</div>
-                    <div>Photos: ${stat.total_photos || 0}</div>
-                    <div>Usage: ${this.formatDuration(stat.app_usage_time || 0)}</div>
-                </div>
-            </div>
-        `).join('');
-    }
+        const rows = [];
+        for (const [key, device] of map.entries()) {
+            const name = device.device_name || key || 'Unknown Device';
+            const model = device.device_model || 'Unknown Model';
+            const last = device.last_updated ? new Date(device.last_updated) : new Date(device._ts);
+            const lastText = last.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const battery = device.battery ?? device.battery_level ?? null;
 
-    updateLastSync() {
-        const now = new Date();
-        const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        document.getElementById('lastUpdated').textContent = `Updated ${timeString}`;
-        document.getElementById('syncStatus').textContent = `Last synced: ${timeString}`;
-    }
+            const batteryHtml = battery == null ? '' : `<span class="badge-small">${battery}%</span>`;
 
-    showStatus(message, type) {
-        // Remove existing status messages
-        const existing = document.querySelector('.success, .error');
-        if (existing) {
-            existing.remove();
+            rows.push(`
+                <div class="device-row">
+                    <div class="device-meta">
+                        <div>
+                            <div class="device-name">${escapeHtml(name)}</div>
+                            <div class="device-model">${escapeHtml(model)}</div>
+                        </div>
+                    </div>
+                    <div class="device-stats">
+                        ${batteryHtml}
+                        <div class="device-last">Last: ${escapeHtml(lastText)}</div>
+                    </div>
+                </div>
+            `);
         }
 
-        const statusDiv = document.createElement('div');
-        statusDiv.className = type;
-        statusDiv.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>${message}`;
-
-        const container = document.querySelector('.main-content');
-        container.insertBefore(statusDiv, container.firstChild);
-
-        // Auto-remove after 5 seconds
-        setTimeout(() => {
-            if (statusDiv.parentNode) {
-                statusDiv.remove();
-            }
-        }, 5000);
+        container.innerHTML = rows.join('');
     }
 
-    formatDuration(seconds) {
-        const hours = Math.floor(seconds / 3600);
-        const minutes = Math.floor((seconds % 3600) / 60);
-        const secs = Math.floor(seconds % 60);
-
-        if (hours > 0) {
-            return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-        } else {
-            return `${minutes}:${secs.toString().padStart(2, '0')}`;
-        }
+    // tiny helper to prevent injection when inserting strings
+    function escapeHtml(str) {
+        if (!str && str !== 0) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
     }
 
-    formatDate(dateString) {
-        const date = new Date(dateString);
-        return date.toLocaleString();
-    }
-
-    formatDateShort(dateString) {
-        const date = new Date(dateString);
-        return date.toLocaleDateString();
-    }
-}
-
-// Initialize dashboard when page loads
-document.addEventListener('DOMContentLoaded', () => {
-    new StatisticsDashboard();
+    // initial population
+    populateGallery();
+    fetchGlobalStatus();
+    // refresh every 15s
+    setInterval(fetchGlobalStatus, 15000);
 });

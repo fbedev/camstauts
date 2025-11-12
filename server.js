@@ -145,12 +145,48 @@ app.post('/api/statistics', (req, res) => {
 });
 
 app.get('/api/statistics', (req, res) => {
-    db.all(`SELECT * FROM statistics ORDER BY last_updated DESC LIMIT 100`, [], (err, rows) => {
+    // Return an aggregated summary first, followed by the latest row per device.
+    // This makes it easy for the frontend to display global totals (total devices,
+    // total recording time, total photos) while still providing a per-device list.
+
+    // Step 1: fetch the latest entry for each device (by last_updated)
+    const latestPerDeviceQuery = `
+        SELECT * FROM statistics AS s
+        WHERE s.last_updated = (
+            SELECT MAX(last_updated) FROM statistics WHERE device_id = s.device_id
+        )
+    `;
+
+    db.all(latestPerDeviceQuery, [], (err, rows) => {
         if (err) {
             console.error('Error fetching statistics:', err);
             return res.status(500).json({ error: 'Failed to fetch statistics' });
         }
-        res.json(rows);
+
+        // Compute aggregates from the latest-per-device rows
+        const totalDevices = rows.length;
+        const totalRecordingTime = rows.reduce((acc, r) => acc + Number(r.total_recording_time || 0), 0);
+        const totalPhotos = rows.reduce((acc, r) => acc + Number(r.total_photos || r.total_photos === 0 ? r.total_photos : 0), 0);
+        const lastUpdatedTs = rows.reduce((acc, r) => {
+            const t = r.last_updated ? new Date(r.last_updated).getTime() : 0;
+            return Math.max(acc, t);
+        }, 0);
+
+        const aggregate = {
+            device_id: 'aggregate',
+            device_name: 'GLOBAL',
+            device_model: 'aggregate',
+            total_devices: totalDevices,
+            total_recording_time: totalRecordingTime,
+            total_photos: totalPhotos,
+            last_updated: lastUpdatedTs ? new Date(lastUpdatedTs).toISOString() : new Date().toISOString()
+        };
+
+        // Sort per-device rows by last_updated desc for the UI
+        rows.sort((a, b) => new Date(b.last_updated).getTime() - new Date(a.last_updated).getTime());
+
+        // Return aggregate as first element for backward-compatible frontend heuristics
+        res.json([aggregate, ...rows]);
     });
 });
 
