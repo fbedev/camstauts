@@ -1,207 +1,80 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="motuscam is a simple camera companion for motion capture sessions. Mirror your preview, keep an eye on recording time, and stay organized on set.">
-    <title>motuscam • Motion capture camera companion</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>motuscam • Status</title>
     <link rel="stylesheet" href="styles.css">
+    <style>
+        /* Small focused overrides for a clean status dashboard */
+        body { background:#f7f7f8; color:#111; }
+        .status-wrap { max-width:1100px; margin:28px auto; padding:20px; }
+        .top-cards { display:flex; gap:12px; margin-bottom:16px; }
+        .card { background:#fff; padding:14px; border-radius:8px; box-shadow:0 1px 2px rgba(0,0,0,0.04); flex:1 }
+        .card h3 { margin:0 0 6px 0; font-size:14px; color:#666 }
+        .card .value { font-size:20px; font-weight:600 }
+        .controls { display:flex; gap:8px; align-items:center; margin-bottom:12px }
+        .controls input { padding:8px 10px; border-radius:6px; border:1px solid #ddd }
+        table.device-table { width:100%; border-collapse:collapse; background:#fff; border-radius:8px; overflow:hidden }
+        table.device-table th, table.device-table td { padding:10px 12px; text-align:left; border-bottom:1px solid #f1f1f1 }
+        table.device-table th { background:#fafafa; font-weight:600 }
+        .muted { color:#666; font-size:13px }
+        .small { font-size:13px }
+    </style>
 </head>
 <body>
-    <div class="page" id="home">
-        <header class="site-header">
-            <div class="container header-inner">
-                <a class="logo" href="#home">motuscam</a>
-                <nav class="nav" id="primaryNav">
-                    <a href="#features">Features</a>
-                    <a href="#how-it-works">How it works</a>
-                    <a href="#download" class="nav-cta">Download</a>
-                </nav>
-                <button class="menu-toggle" id="menuToggle" aria-label="Toggle navigation" aria-expanded="false" aria-controls="primaryNav">
-                    <span class="menu-bar"></span>
-                    <span class="menu-bar"></span>
-                    <span class="menu-bar"></span>
-                </button>
-            </div>
+    <div class="status-wrap">
+        <header style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <h1 style="margin:0;font-size:20px">motuscam — Live status</h1>
+            <div class="muted small">Auto-refresh every 10s • Shows global totals + advanced per-device details</div>
         </header>
 
-        <main>
-            <section class="hero">
-                <div class="container hero-inner">
-                    <div class="hero-copy">
-                        <h1>Camera tools with a global set view.</h1>
-                        <p>motuscam keeps every device on your stage in sync. Mirror the preview, check shared recording time at a glance, and log the takes that matter from any station.</p>
-                        <div class="cta-group">
-                            <a class="button primary" href="https://apps.apple.com/tw/app/calicapture/id6754835375" target="_blank" rel="noopener noreferrer">Download on the App Store</a>
-                            <span class="note">Works on iPhone and iPad.</span>
-                        </div>
-                        <ul class="quick-highlights">
-                            <li>Mirror preview for performers</li>
-                            <li>Session timer and take counter</li>
-                            <li>Live status across every device on set</li>
-                        </ul>
-                    </div>
-                    <div class="hero-card">
-                        <div class="card-header">
-                            <span class="pill">Preview</span>
-                            <span class="status">GLOBAL</span>
-                        </div>
-                        <div class="card-body">
-                            <h2>Self view • Mirror on</h2>
-                            <p class="card-description">Keep the performer centered while the director watches from the monitor.</p>
-                            <dl class="card-stats">
-                                <div>
-                                    <dt>Recording today</dt>
-                                    <dd>47 min</dd>
-                                </div>
-                                <div>
-                                    <dt>Devices reporting</dt>
-                                    <dd>5</dd>
-                                </div>
-                                <div>
-                                    <dt>Takes saved</dt>
-                                    <dd>42</dd>
-                                </div>
-                            </dl>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Live status (global) -->
-            <section class="section status-section" id="live-status">
-                <div class="container">
-                    <header class="section-header">
-                        <h2>Live status</h2>
-                        <p>Current global status across all devices participating in this session.</p>
-                    </header>
-
-                    <div class="status-panel">
-                        <div class="status-item">
-                            <dt>Devices reporting</dt>
-                            <dd id="devicesReporting">—</dd>
-                        </div>
-
-                        <div class="status-item">
-                            <dt>Total recording</dt>
-                            <dd id="totalRecordingGlobal">—</dd>
-                        </div>
-
-                        <div class="status-item">
-                            <dt>Takes</dt>
-                            <dd id="totalTakes">—</dd>
-                        </div>
-
-                        <div class="status-item">
-                            <dt>Last updated</dt>
-                            <dd id="statusUpdated">—</dd>
-                        </div>
-                    </div>
-                    
-                    <!-- Per-device list -->
-                    <div class="device-list-wrap">
-                        <h3 class="device-list-title">Devices on set</h3>
-                        <div class="device-list" id="deviceList">
-                            <!-- Populated by app.js -->
-                            <div class="device-empty">No devices reporting yet.</div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Screenshots and Icon -->
-            <section class="section" id="screenshots">
-                <div class="container">
-                    <header class="section-header">
-                        <h2>Screenshots &amp; App Icon</h2>
-                        <p>Drop your screenshots and the app icon into <code>public/assets/</code> and name them <code>icon.png</code>, <code>screenshot1.png</code>, <code>screenshot2.png</code> etc.</p>
-                    </header>
-
-                    <div class="media-grid">
-                        <div class="app-icon">
-                            <img id="appIcon" src="assets/icon.png" alt="App icon">
-                        </div>
-                        <div class="screenshots-gallery" id="screenshotsGallery">
-                            <img data-src="assets/screenshot1.png" alt="Screenshot 1">
-                            <img data-src="assets/screenshot2.png" alt="Screenshot 2">
-                            <img data-src="assets/screenshot3.png" alt="Screenshot 3">
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <section class="section" id="features">
-                <div class="container">
-                    <header class="section-header">
-                        <h2>What motuscam does</h2>
-                        <p>Designed for crews who want one place to see how every capture device is performing without extra clutter.</p>
-                    </header>
-                    <div class="feature-grid">
-                        <article class="feature-item">
-                            <h3>Mirror mode</h3>
-                            <p>Flip the preview instantly so talent can check posture, eye line, and marker placement before a take.</p>
-                        </article>
-                        <article class="feature-item">
-                            <h3>Session tracking</h3>
-                            <p>Automatically log recording time, number of clips, and devices in use. Everyone sees the same totals instantly.</p>
-                        </article>
-                        <article class="feature-item">
-                            <h3>Simple sync</h3>
-                            <p>Connect multiple devices and keep the same project stats everywhere. motuscam pulls a global status board for you.</p>
-                        </article>
-                    </div>
-                </div>
-            </section>
-
-            <section class="section alt" id="how-it-works">
-                <div class="container">
-                    <header class="section-header">
-                        <h2>How it fits on set</h2>
-                        <p>Three quick steps to keep everyone aligned.</p>
-                    </header>
-                    <ol class="steps">
-                        <li>
-                            <span class="step-number">1</span>
-                            <div>
-                                <h3>Open motuscam and pick your project</h3>
-                                <p>Use the preset templates or start a fresh scene. Everything you log stays attached to that session.</p>
-                            </div>
-                        </li>
-                        <li>
-                            <span class="step-number">2</span>
-                            <div>
-                                <h3>Switch to mirror or standard view</h3>
-                                <p>Tap the mirror toggle so talent can self-check movements while the rest of the crew watches the shared status panel.</p>
-                            </div>
-                        </li>
-                        <li>
-                            <span class="step-number">3</span>
-                            <div>
-                                <h3>Track the takes you keep</h3>
-                                <p>Mark clips as keepers and motuscam updates the global board so every device mirrors the same totals.</p>
-                            </div>
-                        </li>
-                    </ol>
-                </div>
-            </section>
-
-            <section class="section" id="download">
-                <div class="container">
-                    <div class="download-card">
-                        <h2>Ready when your next shoot starts.</h2>
-                        <p>motuscam is lightweight, quick to set up, and helps you stay focused on performers instead of fighting the camera app.</p>
-                        <a class="button primary" href="https://apps.apple.com/tw/app/calicapture/id6754835375" target="_blank" rel="noopener noreferrer">Download on the App Store</a>
-                        <p class="support-text">Questions? Email <a href="mailto:hello@motuscam.app">hello@motuscam.app</a>.</p>
-                    </div>
-                </div>
-            </section>
-        </main>
-
-        <footer class="site-footer">
-            <div class="container footer-inner">
-                <p>&copy; <span id="currentYear"></span> motuscam. All rights reserved.</p>
+        <div class="top-cards">
+            <div class="card">
+                <h3>Devices reporting</h3>
+                <div id="devicesReporting" class="value">—</div>
             </div>
-        </footer>
+            <div class="card">
+                <h3>Total recording</h3>
+                <div id="totalRecordingGlobal" class="value">—</div>
+            </div>
+            <div class="card">
+                <h3>Takes / Photos</h3>
+                <div id="totalTakes" class="value">—</div>
+            </div>
+            <div class="card">
+                <h3>Last updated</h3>
+                <div id="statusUpdated" class="value">—</div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <input id="searchInput" placeholder="Filter devices by name / model / id" style="flex:1">
+            <select id="sortSelect" title="Sort" aria-label="Sort">
+                <option value="updated">Sort: Last updated</option>
+                <option value="recording">Sort: Recording time</option>
+                <option value="photos">Sort: Photos</option>
+                <option value="name">Sort: Name</option>
+            </select>
+        </div>
+
+        <table class="device-table" aria-describedby="device-list">
+            <thead>
+                <tr>
+                    <th>Device</th>
+                    <th>Model</th>
+                    <th>Recording</th>
+                    <th>Sessions</th>
+                    <th>App usage</th>
+                    <th>Photos</th>
+                    <th>Battery</th>
+                    <th>Last</th>
+                </tr>
+            </thead>
+            <tbody id="deviceList">
+                <tr><td colspan="8" class="muted">No devices reporting yet.</td></tr>
+            </tbody>
+        </table>
     </div>
 
     <script src="app.js"></script>

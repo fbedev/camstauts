@@ -52,11 +52,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- Live global status polling ---
+    // --- Live global status polling (focused status page) ---
     const devicesEl = document.getElementById('devicesReporting');
     const totalRecordingEl = document.getElementById('totalRecordingGlobal');
     const totalTakesEl = document.getElementById('totalTakes');
     const updatedEl = document.getElementById('statusUpdated');
+    const searchInput = document.getElementById('searchInput');
+    const sortSelect = document.getElementById('sortSelect');
 
     function formatDuration(seconds) {
         seconds = Math.max(0, Math.floor(seconds || 0));
@@ -108,19 +110,21 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!res.ok) throw new Error('no data');
             const stats = await res.json();
 
-            const latest = Array.isArray(stats) && stats.length ? stats[0] : (stats || {});
+            // Expect aggregate object as first element, followed by per-device rows
+            const aggregate = Array.isArray(stats) && stats.length && stats[0].device_id === 'aggregate' ? stats[0] : null;
+            const perDevice = Array.isArray(stats) ? (aggregate ? stats.slice(1) : stats) : [];
 
-            // heuristics for fields - keep safe fallbacks
-            const devices = latest.total_devices ?? latest.devices_reporting ?? latest.devices_count ?? (Array.isArray(stats) ? stats.length : null);
-            const recordingSeconds = latest.total_recording_time ?? latest.recording_time ?? latest.daily_recording_time ?? 0;
-            const takes = latest.total_photos ?? latest.total_takes ?? latest.total_sessions ?? latest.takes ?? 0;
+            const devices = aggregate ? aggregate.total_devices : perDevice.length;
+            const recordingSeconds = aggregate ? aggregate.total_recording_time : (perDevice.reduce((s, r) => s + Number(r.total_recording_time || 0), 0));
+            const takes = aggregate ? aggregate.total_photos : (perDevice.reduce((s, r) => s + Number(r.total_photos || 0), 0));
 
             if (devicesEl) devicesEl.textContent = devices == null ? '—' : String(devices);
             if (totalRecordingEl) totalRecordingEl.textContent = formatDuration(recordingSeconds);
             if (totalTakesEl) totalTakesEl.textContent = String(takes || 0);
-            if (updatedEl) updatedEl.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            // populate per-device list
-            renderDeviceList(stats);
+            if (updatedEl) updatedEl.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+            // populate per-device list with filtering/sorting
+            renderDeviceList(perDevice);
         } catch (err) {
             // keep existing values if fetch fails
             console.debug('Failed to fetch global status', err);
@@ -130,53 +134,56 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderDeviceList(stats) {
         const container = document.getElementById('deviceList');
         if (!container) return;
+        // stats is expected to be an array of latest rows per device
+        const list = Array.isArray(stats) ? stats.slice() : [];
 
-        // stats might be an array of entries per device over time.
-        // Build a map of latest entry per device (use device_id or device_name)
-        const map = new Map();
-        if (Array.isArray(stats)) {
-            for (const entry of stats) {
-                const key = entry.device_id ?? entry.device_name ?? `${entry.device_model || 'device'}-${entry.device_name || ''}`;
-                const prev = map.get(key);
-                const ts = entry.last_updated ? new Date(entry.last_updated).getTime() : Date.now();
-                if (!prev || ts > prev._ts) {
-                    map.set(key, Object.assign({ _ts: ts }, entry));
-                }
-            }
-        }
+        // apply search filter
+        const q = searchInput && searchInput.value ? searchInput.value.trim().toLowerCase() : '';
+        const filtered = list.filter(d => {
+            if (!q) return true;
+            const combined = `${d.device_id || ''} ${d.device_name || ''} ${d.device_model || ''}`.toLowerCase();
+            return combined.includes(q);
+        });
 
-        if (map.size === 0) {
-            container.innerHTML = '<div class="device-empty">No devices reporting yet.</div>';
+        // apply sorting
+        const sort = sortSelect ? sortSelect.value : 'updated';
+        filtered.sort((a, b) => {
+            if (sort === 'recording') return (b.total_recording_time || 0) - (a.total_recording_time || 0);
+            if (sort === 'photos') return (b.total_photos || 0) - (a.total_photos || 0);
+            if (sort === 'name') return String((a.device_name||a.device_id||'')).localeCompare(String(b.device_name||b.device_id||''));
+            // default: updated
+            return new Date(b.last_updated || 0).getTime() - new Date(a.last_updated || 0).getTime();
+        });
+
+        if (filtered.length === 0) {
+            container.innerHTML = '<tr><td colspan="8" class="muted">No devices match the filter.</td></tr>';
             return;
         }
 
-        const rows = [];
-        for (const [key, device] of map.entries()) {
-            const name = device.device_name || key || 'Unknown Device';
-            const model = device.device_model || 'Unknown Model';
-            const last = device.last_updated ? new Date(device.last_updated) : new Date(device._ts);
-            const lastText = last.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            const battery = device.battery ?? device.battery_level ?? null;
+        const rowsHtml = filtered.map(device => {
+            const name = escapeHtml(device.device_name || device.device_id || 'Unknown');
+            const model = escapeHtml(device.device_model || '—');
+            const recording = formatDuration(device.total_recording_time || device.recording_time || 0);
+            const sessions = device.total_sessions ?? device.sessions ?? 0;
+            const appUsage = formatDuration(device.app_usage_time || device.app_usage || 0);
+            const photos = device.total_photos ?? device.photos ?? 0;
+            const battery = device.battery ?? device.battery_level ?? '';
+            const last = device.last_updated ? new Date(device.last_updated) : new Date();
+            const lastText = last.toLocaleTimeString();
 
-            const batteryHtml = battery == null ? '' : `<span class="badge-small">${battery}%</span>`;
+            return `<tr>
+                <td>${name}</td>
+                <td>${model}</td>
+                <td>${recording}</td>
+                <td>${escapeHtml(String(sessions))}</td>
+                <td>${appUsage}</td>
+                <td>${escapeHtml(String(photos))}</td>
+                <td>${battery === '' ? '' : escapeHtml(String(battery) + '%')}</td>
+                <td>${escapeHtml(lastText)}</td>
+            </tr>`;
+        }).join('');
 
-            rows.push(`
-                <div class="device-row">
-                    <div class="device-meta">
-                        <div>
-                            <div class="device-name">${escapeHtml(name)}</div>
-                            <div class="device-model">${escapeHtml(model)}</div>
-                        </div>
-                    </div>
-                    <div class="device-stats">
-                        ${batteryHtml}
-                        <div class="device-last">Last: ${escapeHtml(lastText)}</div>
-                    </div>
-                </div>
-            `);
-        }
-
-        container.innerHTML = rows.join('');
+        container.innerHTML = rowsHtml;
     }
 
     // tiny helper to prevent injection when inserting strings
@@ -193,6 +200,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // initial population
     populateGallery();
     fetchGlobalStatus();
-    // refresh every 15s
-    setInterval(fetchGlobalStatus, 15000);
+    // refresh every 10s
+    const INTERVAL = 10000;
+    setInterval(fetchGlobalStatus, INTERVAL);
+
+    // wire up search and sort
+    if (searchInput) {
+        searchInput.addEventListener('input', () => fetchGlobalStatus());
+    }
+    if (sortSelect) {
+        sortSelect.addEventListener('change', () => fetchGlobalStatus());
+    }
 });
